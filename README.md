@@ -1,4 +1,4 @@
-# 🌍 GHG Emissions Dashboard
+# Environmental Emissions Dashboard
 
 A professional Streamlit dashboard for corporate carbon footprint reporting, built on the **GHG Protocol Framework**.
 
@@ -13,7 +13,7 @@ A professional Streamlit dashboard for corporate carbon footprint reporting, bui
 
 ---
 
-## 🚀 Deploy to Streamlit Community Cloud (Free)
+## Deploy to Streamlit Community Cloud (Free)
 
 ### Step 1 — Push to GitHub
 ```bash
@@ -68,7 +68,7 @@ The dashboard auto-parses the **Lab1_dashboard.xlsx** format, reading from:
 
 ---
 
-## 📋 GHG Protocol Compliance
+## 📋 Environmental Protocol Compliance
 
 Covers all three scopes per GHG Protocol Corporate Standard:
 - **Scope 1** — Direct emissions (stationary combustion, fleet, fugitive)
