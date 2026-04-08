@@ -14,7 +14,7 @@ from plotly.subplots import make_subplots  ## Plotly helper: multi-panel layouts
 ## ─── PAGE CONFIGURATION ──────────────────────────────────────────────────────
 ## Must be the FIRST Streamlit call — sets browser tab title, icon, and layout
 st.set_page_config(
-    page_title="GHG Emissions Report",  ## Text shown in the browser tab
+    page_title="Environmental Emissions Report",  ## Text shown in the browser tab
     page_icon="🌿",                      ## Emoji shown in the browser tab
     layout="wide",                       ## Use full browser width instead of a narrow centered column
     initial_sidebar_state="expanded",    ## Sidebar is open by default when the page loads
@@ -522,6 +522,98 @@ s3_pct = d["s3_current"] / total_cy * 100 if total_cy else 0  ## Scope 3 as % of
 s1_pct = d["s1_current"] / total_cy * 100 if total_cy else 0  ## Scope 1 as % of total
 s2_pct = d["s2_mb_current"] / total_cy * 100 if total_cy else 0  ## Scope 2 MB as % of total
 
+## ─── DYNAMIC INSIGHT VARIABLES ──────────────────────────────────────────────
+## These variables are computed from live data and injected into every insight
+## headline — so every text statement updates the moment the user changes a number
+
+## --- Tab 1: Emission Trend ---
+tv_clean = [v for v in [d["hist_total"].get(y) for y in hist_yrs5] if v is not None]
+
+## Find the peak year: the year with the highest total emissions in the 5-year window
+peak_year = hist_yrs5[tv_clean.index(max(tv_clean))] if tv_clean else cy
+
+## Determine whether the current year is higher or lower than the prior year
+if d1_tot is not None and d1_tot < 0:
+    trend_verb    = "declined"          ## Emissions fell — positive signal
+    trend_adverb  = f"{abs(d1_tot):.1f}%"
+elif d1_tot is not None and d1_tot > 0:
+    trend_verb    = "increased"         ## Emissions rose — negative signal
+    trend_adverb  = f"{abs(d1_tot):.1f}%"
+else:
+    trend_verb    = "remained flat"
+    trend_adverb  = ""
+
+## Build the headline dynamically: e.g. "Emissions declined 8.2% in 2024, peaking in 2023"
+if peak_year == cy:
+    trend_headline = f"Emissions {trend_verb} {trend_adverb} in {cy} — highest level in the 5-year window"
+else:
+    trend_headline = (f"Emissions {trend_verb} {trend_adverb} in {cy} after peaking in {peak_year}")
+
+## Compute Scope 3 share of the 5-year average total for the sub-text line
+avg_total = sum(v for v in tv_clean if v) / len(tv_clean) if tv_clean else 1
+s3_5yr_pct = (sum(d["hist_s3"].get(y, 0) for y in hist_yrs5) /
+              sum(d["hist_total"].get(y, 1) for y in hist_yrs5) * 100)
+
+## --- Tab 2: Reduction Trajectory ---
+bau_val = d.get("traj_bau", {}).get(nz_year, 0)
+gap_mt  = (bau_val - nz_target) / 1e6          ## Gap in millions of tCO₂e
+
+## Annual reduction needed = (current total - target) / years remaining
+years_to_target = max(nz_year - cy, 1)          ## Avoid division by zero
+annual_reduction_needed = (total_cy - nz_target) / years_to_target
+
+## Express the required annual reduction as a % of current total
+annual_pct_needed = (annual_reduction_needed / total_cy * 100) if total_cy else 0
+
+## Choose wording based on whether there's a meaningful gap
+if gap_mt > 0:
+    traj_headline = (f"A {gap_mt:.0f}M tCO₂e gap separates business-as-usual "
+                     f"from the {nz_year} Net Zero target")
+    traj_subtext  = (f"Requires {fmt_m(annual_reduction_needed)} tCO₂e reduction per year "
+                     f"({annual_pct_needed:.1f}% of current total) through {nz_year}")
+else:
+    traj_headline = f"On track — current trajectory meets the {nz_year} Net Zero target"
+    traj_subtext  = "Continue current reduction pace to maintain trajectory"
+
+## --- Tab 3: Carbon Intensity ---
+int_rev_prev   = d["hist_total"].get(py, 0) / d["revenue"] if d["revenue"] else 0
+int_chg        = pct_chg(int_rev, int_rev_prev)
+int_dir        = "improved" if int_chg and int_chg < 0 else "worsened" if int_chg and int_chg > 0 else "unchanged"
+int_abs_chg    = abs(int_chg) if int_chg else 0
+
+## Scope 2 gap: how much RECs/PPAs are saving vs. grid average
+s2_gap_cy     = d["s2_lb_current"] - d["s2_mb_current"]   ## Current year savings from RECs/PPAs
+s2_gap_pct    = (s2_gap_cy / d["s2_lb_current"] * 100) if d["s2_lb_current"] else 0
+
+if int_chg:
+    int_headline = (f"Carbon intensity {int_dir} {int_abs_chg:.1f}% — "
+                    f"now {int_rev:.1f} tCO₂e per $M revenue")
+    int_subtext  = (f"Employee intensity: {int_emp:.1f} tCO₂e / FTE  ·  "
+                    f"RECs/PPAs offset {s2_gap_pct:.0f}% of location-based Scope 2 "
+                    f"({fmt_m(s2_gap_cy)} tCO₂e saved)")
+else:
+    int_headline = f"Carbon intensity: {int_rev:.1f} tCO₂e per $M revenue"
+    int_subtext  = f"Employee intensity: {int_emp:.1f} tCO₂e / FTE"
+
+## --- Tab 4: Scope Breakdown ---
+## Identify the dominant scope (largest contributor)
+scope_vals  = {"Scope 1": s1_pct, "Scope 2 (Market)": s2_pct, "Scope 3": s3_pct}
+dominant    = max(scope_vals, key=scope_vals.get)
+dominant_pct = scope_vals[dominant]
+
+## Compare Scope 3 to prior year for sub-text
+s3_yoy_txt = ""
+if d1_s3 is not None:
+    s3_dir  = "fell" if d1_s3 < 0 else "rose"
+    s3_yoy_txt = f"  ·  Scope 3 {s3_dir} {abs(d1_s3):.1f}% vs. prior year"
+
+breakdown_headline = (f"{dominant} is the critical focus — "
+                      f"{dominant_pct:.0f}% of total footprint")
+breakdown_subtext  = (f"Scope 1: {s1_pct:.1f}%  ·  "
+                      f"Scope 2 (market-based): {s2_pct:.1f}%  ·  "
+                      f"Scope 3: {s3_pct:.1f}%"
+                      f"{s3_yoy_txt}")
+
 ## ─── PAGE HEADER ─────────────────────────────────────────────────────────────
 ## Full-width banner showing company name, year, revenue, and employee count
 st.markdown(f"""
@@ -549,8 +641,8 @@ st.markdown(f"""
 ## ─── KPI ROW ─────────────────────────────────────────────────────────────────
 ## Five metric cards showing the most important numbers — the executive at-a-glance view
 st.markdown(insight_header(
-    f"Scope 3 dominates — {s3_pct:.0f}% of total footprint driven by value chain",  ## Dynamic headline using computed s3_pct
-    f"Total inventory: {fmt_m(total_cy)} tCO₂e  ·  Reporting year {cy}  ·  Market-based Scope 2"
+    f"Scope 3 accounts for {s3_pct:.0f}% of total footprint — {fmt_m(d['s3_current'])} tCO₂e in {cy}",  ## Fully dynamic: updates on every data change
+    f"Total inventory: {fmt_m(total_cy)} tCO₂e  ·  S1: {fmt_m(d['s1_current'])}  ·  S2 MB: {fmt_m(d['s2_mb_current'])}  ·  S3: {fmt_m(d['s3_current'])}"
 ), unsafe_allow_html=True)
 
 k1, k2, k3, k4, k5 = st.columns(5)  ## Five equal-width columns for the KPI cards
@@ -581,8 +673,8 @@ with tab1:
     tv  = [d["hist_total"].get(y) for y in hist_yrs5]  ## Combined total for each year
 
     st.markdown(insight_header(
-        "Absolute emissions declined in 2024 after peaking in 2023",
-        "Scope 3 value chain emissions are the primary lever — representing over 97% of inventory"
+        trend_headline,   ## Dynamic: detects peak year and direction from the data
+        f"Scope 3 represents {s3_5yr_pct:.0f}% of the 5-year average inventory — the primary reduction lever"
     ), unsafe_allow_html=True)
 
     col_bar, col_yoy = st.columns([3, 2])  ## Left column (wider) for bar chart; right column for YoY chart
@@ -676,8 +768,8 @@ with tab2:
     gap = (bau_val - nz_target) / 1e6                  ## Gap between BAU and target, expressed in millions of tCO₂e
 
     st.markdown(insight_header(
-        f"A {gap:.0f}M tCO₂e gap separates business-as-usual from the {nz_year} Net Zero target",
-        "Accelerated decarbonisation across all scopes is required to meet SBTi-aligned pathways"
+        traj_headline,  ## Dynamic: recalculates gap and annual reduction needed from live data
+        traj_subtext
     ), unsafe_allow_html=True)
 
     fig3 = go.Figure()  ## New figure for the trajectory comparison chart
@@ -743,9 +835,8 @@ with tab3:
     dir_word = "improved" if int_chg and int_chg < 0 else "increased"                 ## "improved" = fell (good); "increased" = rose (bad)
 
     st.markdown(insight_header(
-        (f"Carbon intensity {dir_word} {abs(int_chg):.1f}% — "
-         f"now {int_rev:.1f} tCO₂e per $M revenue") if int_chg else "Carbon intensity ratios",
-        "Intensity metrics decouple emissions performance from business growth"
+        int_headline,  ## Dynamic: updates direction word, %, and absolute intensity on every change
+        int_subtext    ## Dynamic: includes employee intensity and REC/PPA savings
     ), unsafe_allow_html=True)
 
     ## Build 5-year intensity series by dividing historical totals by current financial metrics
@@ -815,8 +906,8 @@ with tab3:
 ## ── TAB 4: SCOPE BREAKDOWN ───────────────────────────────────────────────────
 with tab4:
     st.markdown(insight_header(
-        f"Value chain (Scope 3) is the critical focus — {s3_pct:.0f}% of total footprint",  ## Dynamic % computed above
-        f"Scope 1: {s1_pct:.1f}%  ·  Scope 2 (market-based): {s2_pct:.1f}%  ·  Scope 3: {s3_pct:.1f}%"
+        breakdown_headline,  ## Dynamic: identifies the dominant scope automatically from the numbers
+        breakdown_subtext    ## Dynamic: shows full % breakdown + Scope 3 YoY change direction
     ), unsafe_allow_html=True)
 
     col_pie, col_area = st.columns(2)  ## Donut chart on the left, stacked area chart on the right
