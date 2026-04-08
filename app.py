@@ -335,10 +335,17 @@ with st.sidebar:
     if mode == "📤 Upload Excel":
         uploaded = st.file_uploader("Lab1_dashboard.xlsx", type=["xlsx"])
         if uploaded:
-            with st.spinner("Parsing…"):
-                parsed = parse_excel(uploaded)
-                d.update({k: v for k, v in parsed.items() if v})
-            st.success("✅ File loaded")
+            file_id = f"{uploaded.name}_{uploaded.size}"
+            if st.session_state.get("_file_id") != file_id:
+                with st.spinner("Parsing…"):
+                    parsed = parse_excel(uploaded)
+                    st.session_state["_parsed"] = parsed
+                    st.session_state["_file_id"] = file_id
+            d.update({k: v for k, v in st.session_state["_parsed"].items() if v})
+            st.success(f"✅ Loaded: {d.get(chr(39)+'company'+chr(39), 'file')}")
+        elif "_parsed" in st.session_state:
+            d.update({k: v for k, v in st.session_state["_parsed"].items() if v})
+            st.caption(f"Using: {d.get(chr(39)+'company'+chr(39), 'uploaded file')}")
         else:
             st.caption("Demo data: Microsoft 2020–2024")
     else:
