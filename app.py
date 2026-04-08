@@ -323,7 +323,7 @@ with st.sidebar:
     st.markdown("""
     <div style="padding:20px 0 8px">
       <div style="font-family:Playfair Display,serif;font-size:1.2rem;font-weight:700;
-                  color:white;line-height:1.2">GHG Emissions<br>Intelligence</div>
+                  color:white;line-height:1.2">Environmental Analytics<br>Intelligence</div>
       <div style="font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;
                   color:#99bbdd;margin-top:4px">GHG Protocol Framework</div>
     </div>""", unsafe_allow_html=True)
@@ -355,10 +355,46 @@ with st.sidebar:
         d["current_year"]  = st.number_input("Reporting Year", value=int(d["current_year"]), step=1)
         d["revenue"]       = st.number_input("Revenue ($M)", value=float(d["revenue"]), step=1000.0)
         d["employees"]     = st.number_input("Employees (FTE)", value=float(d["employees"]), step=1000.0)
+
         st.markdown("**Current Year Emissions (tCO₂e)**")
         d["s1_current"]    = st.number_input("Scope 1", value=float(d["s1_current"]), step=1000.0)
-        d["s2_mb_current"] = st.number_input("Scope 2 (Market)", value=float(d["s2_mb_current"]), step=1000.0)
+        d["s2_mb_current"] = st.number_input("Scope 2 (Market-Based)", value=float(d["s2_mb_current"]), step=1000.0)
+        d["s2_lb_current"] = st.number_input("Scope 2 (Location-Based)", value=float(d["s2_lb_current"]), step=1000.0)
         d["s3_current"]    = st.number_input("Scope 3", value=float(d["s3_current"]), step=100000.0)
+
+        st.markdown("**Historical Data — Scope 1 (tCO₂e)**")
+        cy_val = int(d["current_year"])
+        hist_input_years = list(range(cy_val - 4, cy_val))  # 4 prior years
+        d["hist_years"] = hist_input_years + [cy_val]
+        for yr in hist_input_years:
+            s1_default = float(d["hist_s1"].get(yr, 0.0))
+            d["hist_s1"][yr] = st.number_input(f"Scope 1 — {yr}", value=s1_default, step=1000.0, key=f"s1_{yr}")
+
+        st.markdown("**Historical Data — Scope 2 Market-Based (tCO₂e)**")
+        for yr in hist_input_years:
+            s2_default = float(d["hist_s2mb"].get(yr, 0.0))
+            d["hist_s2mb"][yr] = st.number_input(f"Scope 2 MB — {yr}", value=s2_default, step=1000.0, key=f"s2mb_{yr}")
+
+        st.markdown("**Historical Data — Scope 2 Location-Based (tCO₂e)**")
+        for yr in hist_input_years:
+            s2lb_default = float(d["hist_s2lb"].get(yr, 0.0))
+            d["hist_s2lb"][yr] = st.number_input(f"Scope 2 LB — {yr}", value=s2lb_default, step=100000.0, key=f"s2lb_{yr}")
+
+        st.markdown("**Historical Data — Scope 3 (tCO₂e)**")
+        for yr in hist_input_years:
+            s3_default = float(d["hist_s3"].get(yr, 0.0))
+            d["hist_s3"][yr] = st.number_input(f"Scope 3 — {yr}", value=s3_default, step=100000.0, key=f"s3_{yr}")
+
+        # Auto-compute historical totals from entered scope values
+        for yr in hist_input_years:
+            d["hist_total"][yr] = d["hist_s1"].get(yr, 0) + d["hist_s2mb"].get(yr, 0) + d["hist_s3"].get(yr, 0)
+
+        # Set current year in all hist dicts from the current year inputs
+        d["hist_s1"][cy_val]    = d["s1_current"]
+        d["hist_s2mb"][cy_val]  = d["s2_mb_current"]
+        d["hist_s2lb"][cy_val]  = d["s2_lb_current"]
+        d["hist_s3"][cy_val]    = d["s3_current"]
+        d["hist_total"][cy_val] = d["s1_current"] + d["s2_mb_current"] + d["s3_current"]
 
     st.divider()
     st.markdown("**Targets**")
