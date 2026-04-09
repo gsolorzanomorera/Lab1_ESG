@@ -1,5 +1,5 @@
 ## ============================================================
-## GHG Emissions Dashboard — McKinsey-style Streamlit App
+## GHG Emissions Dashboard — gsolmo-style Streamlit App
 ## GHG Protocol Framework: Scope 1, 2, 3 reporting
 ## Supports Excel upload or full manual data entry
 ## ============================================================
@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 ## ─── CUSTOM CSS STYLING ──────────────────────────────────────────────────────
-## Injects CSS into the page to apply McKinsey-style design:
+## Injects CSS into the page to apply gsolmo-style design:
 ## white background, navy sidebar, clean serif typography, minimal borders
 st.markdown("""
 <style>
@@ -195,7 +195,7 @@ def delta_html(pct):
             f' <span style="color:#667085;font-size:0.8em">vs. prior year</span>')  ## Small "vs. prior year" suffix
 
 def insight_header(headline, subtext=""):
-    ## Generate a McKinsey-style section heading: bold serif headline with 2px navy bottom border
+    ## Generate a gsolmo-style section heading: bold serif headline with 2px navy bottom border
     ## The navy border visually anchors the headline to the content below it
     ## subtext is optional — a smaller gray explanatory line under the headline
     sub = (f'<div style="font-family:IBM Plex Sans;font-size:0.82rem;color:#667085;'
@@ -208,7 +208,7 @@ def insight_header(headline, subtext=""):
     </div>"""
 
 def kpi_block(label, value, unit, delta_pct=None, note=""):
-    ## Generate HTML for a KPI metric card in McKinsey consulting style
+    ## Generate HTML for a KPI metric card in gsolmo consulting style
     ## Structure: navy 3px top accent → small-caps label → large serif value → monospace unit → delta arrow → note
     delta = delta_html(delta_pct) if delta_pct is not None else ""  ## Only show delta badge if percentage was passed
     note_html = (f'<div style="font-size:0.75rem;color:#667085;margin-top:2px">{note}</div>'
